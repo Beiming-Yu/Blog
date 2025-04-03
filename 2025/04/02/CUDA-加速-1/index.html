@@ -29,8 +29,9 @@
 <meta property="og:image" content="https://beiming-yu.github.io/Blog/2025/04/02/CUDA-%E5%8A%A0%E9%80%9F-1/image.png">
 <meta property="og:image" content="https://beiming-yu.github.io/Blog/2025/04/02/CUDA-%E5%8A%A0%E9%80%9F-1/image-2.png">
 <meta property="og:image" content="https://beiming-yu.github.io/Blog/2025/04/02/CUDA-%E5%8A%A0%E9%80%9F-1/image-3.png">
+<meta property="og:image" content="https://beiming-yu.github.io/Blog/2025/04/02/CUDA-%E5%8A%A0%E9%80%9F-1/image-4.png">
 <meta property="article:published_time" content="2025-04-02T20:16:43.000Z">
-<meta property="article:modified_time" content="2025-04-02T22:12:05.245Z">
+<meta property="article:modified_time" content="2025-04-03T10:19:32.904Z">
 <meta property="article:author" content="Yang YU">
 <meta property="article:tag" content="CUDA">
 <meta name="twitter:card" content="summary_large_image">
@@ -74,7 +75,7 @@
   <script id="fluid-configs">
     var Fluid = window.Fluid || {};
     Fluid.ctx = Object.assign({}, Fluid.ctx)
-    var CONFIG = {"hostname":"beiming-yu.github.io","root":"/Blog/","version":"1.9.8","typing":{"enable":true,"typeSpeed":70,"cursorChar":"_","loop":false,"scope":[]},"anchorjs":{"enable":true,"element":"h1,h2,h3,h4,h5,h6","placement":"left","visible":"hover","icon":""},"progressbar":{"enable":true,"height_px":3,"color":"#29d","options":{"showSpinner":false,"trickleSpeed":100}},"code_language":{"enable":true,"default":"TEXT"},"copy_btn":true,"image_caption":{"enable":true},"image_zoom":{"enable":true,"img_url_replace":["",""]},"toc":{"enable":true,"placement":"right","headingSelector":"h1,h2,h3,h4,h5,h6","collapseDepth":0},"lazyload":{"enable":true,"loading_img":"/img/loading.gif","onlypost":false,"offset_factor":2},"web_analytics":{"enable":false,"follow_dnt":true,"baidu":null,"google":{"measurement_id":null},"tencent":{"sid":null,"cid":null},"leancloud":{"app_id":null,"app_key":null,"server_url":null,"path":"window.location.pathname","ignore_local":false},"umami":{"src":null,"website_id":null,"domains":null,"start_time":"2024-01-01T00:00:00.000Z","token":null,"api_server":null}},"search_path":"/Blog/local-search.xml","include_content_in_search":true};
+    var CONFIG = {"hostname":"beiming-yu.github.io","root":"/Blog/","version":"1.9.8","typing":{"enable":true,"typeSpeed":70,"cursorChar":"_","loop":false,"scope":[]},"anchorjs":{"enable":true,"element":"h1,h2,h3,h4,h5,h6","placement":"left","visible":"hover","icon":""},"progressbar":{"enable":true,"height_px":3,"color":"#29d","options":{"showSpinner":false,"trickleSpeed":100}},"code_language":{"enable":true,"default":"cpp"},"copy_btn":true,"image_caption":{"enable":true},"image_zoom":{"enable":true,"img_url_replace":["",""]},"toc":{"enable":true,"placement":"right","headingSelector":"h1,h2,h3,h4,h5,h6","collapseDepth":0},"lazyload":{"enable":true,"loading_img":"/img/loading.gif","onlypost":false,"offset_factor":2},"web_analytics":{"enable":false,"follow_dnt":true,"baidu":null,"google":{"measurement_id":null},"tencent":{"sid":null,"cid":null},"leancloud":{"app_id":null,"app_key":null,"server_url":null,"path":"window.location.pathname","ignore_local":false},"umami":{"src":null,"website_id":null,"domains":null,"start_time":"2024-01-01T00:00:00.000Z","token":null,"api_server":null}},"search_path":"/Blog/local-search.xml","include_content_in_search":true};
 
     if (CONFIG.web_analytics.follow_dnt) {
       var dntVal = navigator.doNotTrack || window.doNotTrack || navigator.msDoNotTrack;
@@ -211,7 +212,7 @@
       <span class="post-meta mr-2">
         <i class="iconfont icon-chart"></i>
         
-          102 字
+          1.1k 字
         
       </span>
     
@@ -222,7 +223,7 @@
         
         
         
-          1 分钟
+          10 分钟
         
       </span>
     
@@ -267,17 +268,55 @@
                 <h1>目标</h1>
 <p>理解GPU的物理和逻辑架构，有利于分析CUDA编程可能存在的<strong>传输和运算瓶颈</strong>。本文中我们会介绍GPU和CUDA编程中涉及的<strong>物理结构</strong>和实际编程调用的<strong>逻辑结构</strong>，并以本机为例（<em>RTX4060</em>），学习调用英伟达官方示例程序显示<strong>GPU的具体参数</strong>。</p>
 <h2 id="GPU-物理架构">GPU 物理架构</h2>
+<p>GPU内含有多个核（<em>CUDA Core</em>），并通过流式多处理器（<em>SM: Streaming Multiprocessor</em>）进行调度。GPU含有一个总的公共内存（<em>Global Memory</em>），即对应GPU的显存；每个流式多处理器有内部的共享内存（<em>Shared Memory</em>），<strong>线程对于共享内存的访问速度优于GPU公共内存</strong>。因此：在编程中尽量避免线程频繁读取公共内存的数据，例如<span style="color:#E87A90; font-weight: bold">行主序矩阵按列读取</span>。</p>
 <p align="center">
   <img src="image.png" srcset="/Blog/img/loading.gif" lazyload alt="CUDA物理结构图" style="width: 60%; border-radius: 10px;">
 </p>
 <h2 id="CUDA-编程架构">CUDA 编程架构</h2>
+<p>区别于物理架构，CUDA引入了 <em>Thread</em>, <em>Warp</em> 和 <em>Block</em> 的概念。</p>
+<ul>
+<li><strong>Thread</strong> 是指令执行的最小单位，对应CUDA Core，但是一个CUDA Core可以通过指令级流水线 + 上下文保持 + 高速切换在固定的时钟周期完成不同线程的计算任务。</li>
+<li><strong>Warp</strong> 是介于SM和Thread的过渡单位，并不完全属于虚拟概念，SM中存在硬件 <em>Warp Scheduler</em> 负责调度实际线程。一般来说，一个<em>Warp</em>对应32个<em>Thread</em>，通过多线程并行单指令（<strong>SIMT</strong>）的方式并行执行同一条指令。在实际编程中，一般不会接触到这个层面的作业（例外：<span style="color:#B28FCE; font-weight: bold">warp <code>__shfl_</code></span>）。当并<strong>未完全调用一个<em>Warp</em>中的所有线程</strong>的时候，多余的线程将会静默，造成浪费。因此，我们一般需要关注：<span style="color:#E87A90; font-weight: bold">使用32的整倍数作为<em>block</em>内的线程数。</span></li>
+<li><strong>Block</strong> 是 <em>CUDA Kernel</em> 编程的主要逻辑对象。一般在计算过程中，我们会调用多个<em>block</em>完成不同部分的任务，每个<em>block</em>会分配给一个SM（并非一一对应，一个SM可以处理多个<em>block</em>任务）,同时在SM上创建对应的局部共享内存，<strong><em>block</em>内的线程可以快速访问</strong>。逻辑上来说，<em>block</em>会把任务分配给<em>Thread</em>进行操作，对应的物理结构上，SM会通过<em>Warp</em>调用线程进行计算。对于实际编程来说，我们主要需要关注<span style="color:#E87A90; font-weight: bold"><em>Block</em>和<em>Thread</em>的合理分配，数据在局部共享内存上的访问，可能存在的原子化操作</span>。</li>
+</ul>
 <p align="center">
   <img src="image-2.png" srcset="/Blog/img/loading.gif" lazyload alt="CUDA逻辑结构图" style="width: 60%; border-radius: 10px;">
 </p>
+<p>我们来看一个典型的<em>CUDA Kernel</em>:</p>
+<figure class="highlight cpp"><figcaption><span>&#123;title</span></figcaption><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><code class="hljs cpp"><span class="hljs-function">__global <span class="hljs-title">AddKernel</span><span class="hljs-params">(<span class="hljs-type">int</span>* a, <span class="hljs-type">int</span>* b)</span></span>&#123;<br>  __shared__ <span class="hljs-type">int</span> c[<span class="hljs-number">32</span>];<br><br>  <span class="hljs-comment">// 计算</span><br>&#125;<br><br><span class="hljs-type">int</span> block_size = <span class="hljs-number">32</span>;<br><span class="hljs-type">int</span> threads_per_block = <span class="hljs-number">32</span>;<br>AddKernel&lt;&lt;&lt;block_size, threads_per_block&gt;&gt;&gt;(&amp;a, &amp;b);<br></code></pre></td></tr></table></figure>
+<p>这里我们显式设置了<code>block_size</code>和<code>threads_per_block</code>，并创建了<code>block</code>级别的共享内存<code>c[32]</code>，这个任务会通过SM调用32个<em>block</em>，每个<em>block</em>涉及32个<em>threads</em>，刚好是一个<em>warp</em>的大小；每个<em>block</em>在SM上有一个共享内存的区域，内部的线程可以快速访问，<em>block</em>间不能相互访问这部分内存。</p>
 <p align="center">
   <img src="image-3.png" srcset="/Blog/img/loading.gif" lazyload alt="CUDA逻辑结构图-9.0+计算能力" style="width: 60%; border-radius: 10px;">
 </p>
+<p>在CUDA 9.0计算能力之后的版本，额外添加个一个<strong>Cluster</strong>的版块，CUDA支持<strong>Cluster</strong>内的<em>block</em>交换数据，而不需要将数据返回到GPU的<em>global memory</em>再进行分发，可以有效增强协作能力。</p>
 <h2 id="deviceQuery">deviceQuery</h2>
+<p>我们可以下载CUDA官方样例库<a target="_blank" rel="noopener" href="https://github.com/NVIDIA/cuda-samples">Cuda-sample</a>，并按照对应内容安装。通过运行<code>build/Samples/1_Utilities/deviceQuery/ </code>，我们可以得到：</p>
+<p align="center">
+  <img src="image-4.png" srcset="/Blog/img/loading.gif" lazyload alt="GPU具体参数-以RTX4060为例" style="width: 80%; border-radius: 10px;">
+</p>
+<p>这里我们可以看到：</p>
+<ul>
+<li><strong>CUDA 驱动版本</strong> 12.8 - <span style="color:#E87A90; font-weight: bold">对应安装pytorch、CUDNN等版本</span></li>
+<li><strong>CUDA 计算能力</strong> 8.9 - 因此不支持<strong>Cluster</strong>操作</li>
+<li><strong>Global Memory</strong> 8GB - 即显存</li>
+<li><strong>CUDA Core</strong> 3072</li>
+<li><strong>Memory Bus Width</strong> 128 bit - 总线宽度<br>
+因此理论内存带宽：</li>
+</ul>
+<p class="katex-block "><span class="katex-display"><span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML" display="block"><semantics><mtable rowspacing="0.25em" columnalign="right left" columnspacing="0em"><mtr><mtd><mstyle scriptlevel="0" displaystyle="true"><mtext>Bandwidth (GB/s)</mtext></mstyle></mtd><mtd><mstyle scriptlevel="0" displaystyle="true"><mrow><mrow></mrow><mo>=</mo><mfrac><mrow><mtext>Memory Clock (Hz)</mtext><mo>×</mo><mtext>Bus Width (bit)</mtext><mo>×</mo><mn>2</mn></mrow><mrow><mn>8</mn><mo>×</mo><msup><mn>10</mn><mn>9</mn></msup></mrow></mfrac></mrow></mstyle></mtd></mtr><mtr><mtd><mstyle scriptlevel="0" displaystyle="true"><mrow></mrow></mstyle></mtd><mtd><mstyle scriptlevel="0" displaystyle="true"><mrow><mrow></mrow><mo>=</mo><mfrac><mrow><mn>8.001</mn><mo>×</mo><msup><mn>10</mn><mn>8</mn></msup><mo>×</mo><mn>128</mn><mo>×</mo><mn>2</mn></mrow><mrow><mn>8</mn><mo>×</mo><msup><mn>10</mn><mn>9</mn></msup></mrow></mfrac></mrow></mstyle></mtd></mtr><mtr><mtd><mstyle scriptlevel="0" displaystyle="true"><mrow></mrow></mstyle></mtd><mtd><mstyle scriptlevel="0" displaystyle="true"><mrow><mrow></mrow><mo>=</mo><mn>25.6</mn><mtext> GB/s</mtext></mrow></mstyle></mtd></mtr></mtable><annotation encoding="application/x-tex">\begin{aligned}
+\text{Bandwidth (GB/s)} 
+&amp;= \frac{\text{Memory Clock (Hz)} \times \text{Bus Width (bit)} \times 2}{8 \times 10^9} \\
+&amp;= \frac{8.001 \times 10^8 \times 128 \times 2}{8 \times 10^9} \\
+&amp;= 25.6~\text{GB/s}
+\end{aligned}
+</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:6.5568em;vertical-align:-3.0284em;"></span><span class="mord"><span class="mtable"><span class="col-align-r"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:3.5284em;"><span style="top:-5.5925em;"><span class="pstrut" style="height:3.4911em;"></span><span class="mord"><span class="mord text"><span class="mord">Bandwidth (GB/s)</span></span></span></span><span style="top:-3.0321em;"><span class="pstrut" style="height:3.4911em;"></span><span class="mord"></span></span><span style="top:-1.1227em;"><span class="pstrut" style="height:3.4911em;"></span><span class="mord"></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:3.0284em;"><span></span></span></span></span></span><span class="col-align-l"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:3.5284em;"><span style="top:-5.5925em;"><span class="pstrut" style="height:3.4911em;"></span><span class="mord"><span class="mord"></span><span class="mspace" style="margin-right:0.2778em;"></span><span class="mrel">=</span><span class="mspace" style="margin-right:0.2778em;"></span><span class="mord"><span class="mopen nulldelimiter"></span><span class="mfrac"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:1.427em;"><span style="top:-2.314em;"><span class="pstrut" style="height:3em;"></span><span class="mord"><span class="mord">8</span><span class="mspace" style="margin-right:0.2222em;"></span><span class="mbin">×</span><span class="mspace" style="margin-right:0.2222em;"></span><span class="mord">1</span><span class="mord"><span class="mord">0</span><span class="msupsub"><span class="vlist-t"><span class="vlist-r"><span class="vlist" style="height:0.7401em;"><span style="top:-2.989em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight">9</span></span></span></span></span></span></span></span></span></span><span style="top:-3.23em;"><span class="pstrut" style="height:3em;"></span><span class="frac-line" style="border-bottom-width:0.04em;"></span></span><span style="top:-3.677em;"><span class="pstrut" style="height:3em;"></span><span class="mord"><span class="mord text"><span class="mord">Memory Clock (Hz)</span></span><span class="mspace" style="margin-right:0.2222em;"></span><span class="mbin">×</span><span class="mspace" style="margin-right:0.2222em;"></span><span class="mord text"><span class="mord">Bus Width (bit)</span></span><span class="mspace" style="margin-right:0.2222em;"></span><span class="mbin">×</span><span class="mspace" style="margin-right:0.2222em;"></span><span class="mord">2</span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:0.7693em;"><span></span></span></span></span></span><span class="mclose nulldelimiter"></span></span></span></span><span style="top:-3.0321em;"><span class="pstrut" style="height:3.4911em;"></span><span class="mord"><span class="mord"></span><span class="mspace" style="margin-right:0.2778em;"></span><span class="mrel">=</span><span class="mspace" style="margin-right:0.2778em;"></span><span class="mord"><span class="mopen nulldelimiter"></span><span class="mfrac"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:1.4911em;"><span style="top:-2.314em;"><span class="pstrut" style="height:3em;"></span><span class="mord"><span class="mord">8</span><span class="mspace" style="margin-right:0.2222em;"></span><span class="mbin">×</span><span class="mspace" style="margin-right:0.2222em;"></span><span class="mord">1</span><span class="mord"><span class="mord">0</span><span class="msupsub"><span class="vlist-t"><span class="vlist-r"><span class="vlist" style="height:0.7401em;"><span style="top:-2.989em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight">9</span></span></span></span></span></span></span></span></span></span><span style="top:-3.23em;"><span class="pstrut" style="height:3em;"></span><span class="frac-line" style="border-bottom-width:0.04em;"></span></span><span style="top:-3.677em;"><span class="pstrut" style="height:3em;"></span><span class="mord"><span class="mord">8.001</span><span class="mspace" style="margin-right:0.2222em;"></span><span class="mbin">×</span><span class="mspace" style="margin-right:0.2222em;"></span><span class="mord">1</span><span class="mord"><span class="mord">0</span><span class="msupsub"><span class="vlist-t"><span class="vlist-r"><span class="vlist" style="height:0.8141em;"><span style="top:-3.063em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight">8</span></span></span></span></span></span></span></span><span class="mspace" style="margin-right:0.2222em;"></span><span class="mbin">×</span><span class="mspace" style="margin-right:0.2222em;"></span><span class="mord">128</span><span class="mspace" style="margin-right:0.2222em;"></span><span class="mbin">×</span><span class="mspace" style="margin-right:0.2222em;"></span><span class="mord">2</span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:0.7693em;"><span></span></span></span></span></span><span class="mclose nulldelimiter"></span></span></span></span><span style="top:-1.1227em;"><span class="pstrut" style="height:3.4911em;"></span><span class="mord"><span class="mord"></span><span class="mspace" style="margin-right:0.2778em;"></span><span class="mrel">=</span><span class="mspace" style="margin-right:0.2778em;"></span><span class="mord">25.6</span><span class="mspace nobreak"> </span><span class="mord text"><span class="mord">GB/s</span></span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:3.0284em;"><span></span></span></span></span></span></span></span></span></span></span></span></p>
+<ul>
+<li><strong>Total Amount of Constant Memory</strong> 65536 bytes = 64 KB - 常量内存大小，<span style="color:#E87A90; font-weight: bold">可以通过<code>__constant__</code>指定，全局共享</span></li>
+<li><strong>Total Amount of Shared Memory per Block</strong> 49152 bytes = 48 KB - <em>Block</em>内部共享内存大小，<span style="color:#E87A90; font-weight: bold">可以通过<code>__shared__</code>指定，由内部的线程共享</span></li>
+<li><strong>Total Shared Memory per Multiprocessor</strong> 102400 bytes = 100 KB - SM共享内存大小，是一个SM可以分配给不同<em>Block</em>的最多大小，会在不同<em>Block</em>间划分</li>
+<li><strong>Maximum Number of Threads per Multiprocessor</strong> 1536 = <span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mn>32</mn><mo>×</mo><mn>48</mn></mrow><annotation encoding="application/x-tex">32 \times 48</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.7278em;vertical-align:-0.0833em;"></span><span class="mord">32</span><span class="mspace" style="margin-right:0.2222em;"></span><span class="mbin">×</span><span class="mspace" style="margin-right:0.2222em;"></span></span><span class="base"><span class="strut" style="height:0.6444em;"></span><span class="mord">48</span></span></span></span> - SM对应的最大线程数</li>
+<li><strong>Maximum Number of Threads per Block</strong> 1024 = <span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mn>32</mn><mo>×</mo><mn>32</mn></mrow><annotation encoding="application/x-tex">32 \times 32</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.7278em;vertical-align:-0.0833em;"></span><span class="mord">32</span><span class="mspace" style="margin-right:0.2222em;"></span><span class="mbin">×</span><span class="mspace" style="margin-right:0.2222em;"></span></span><span class="base"><span class="strut" style="height:0.6444em;"></span><span class="mord">32</span></span></span></span> - <span style="color:#E87A90; font-weight: bold"><em>Block</em>对应的最大线程数</span>，因此一般会使用<code>grid3(32, 32)</code>作为最大的二维分配。（尽管如此，当你调用多个1024的<em>Block</em>时，SM剩下的512个线程将等待，因为无法形成一个完整的<em>Block</em>。因此，<span style="color:#E87A90; font-weight: bold">建议使用小一些的<em>Block</em></span>，比如512个<em>Thread</em>，此时能较好的利用资源）</li>
+</ul>
 
                 
               </div>
